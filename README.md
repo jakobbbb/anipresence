@@ -2,6 +2,10 @@
 
 ![screenshot](screenshot.png)
 
+## deps
+
+`yay -S python-pypresence`, or a similar package on your system i guess
+
 ## how
 
 start the `anipresence.py` after mpv has been started.
