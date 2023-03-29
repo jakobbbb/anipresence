@@ -22,7 +22,7 @@ if [ $# == "1" ]; then
 		sed -i "s/^${new}/${orig}/" "$FILE"
 		sed -i "s/^${orig}/${aud}/" "$FILE"
 	fi
-	sed -i "s/\\\{title/\\\{allanime_title/" "$FILE"
+	sed -i "s/\\\{allanime_title/\\\{title/" "$FILE"
 else
 	cd "$DIR" || exit 1
 	git restore ani-cli
