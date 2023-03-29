@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# call just the script to change stuff, call it with any argument to revert the changes
+
+# ./ani.patch 1		- changes ani-cli to the modified version
+# ./ani.patch 2		- changes the audio delay to fit bluetooth stuff
+# ./ani.patch		- changes it back so one can pull without conflicts
+
+declare -r DIR="$HOME/git/ani-cli"
+declare -r FILE="$DIR/ani-cli"
+
+orig="\tmpv\*) nohup \"\$player_function\""
+new="$orig --volume=100 --saturation=45 --fs"
+aud="$new --audio-delay=-2.44"
+title=""
+
+if [ $# == "1" ]; then
+	if [ $1 == "1" ]; then
+		sed -i "s/^${aud}/${orig}/" "$FILE"
+		sed -i "s/^${orig}/${new}/" "$FILE"
+	elif [ $1 == "2" ]; then
+		sed -i "s/^${new}/${orig}/" "$FILE"
+		sed -i "s/^${orig}/${aud}/" "$FILE"
+	fi
+	sed -i "s/\\\{title/\\\{allanime_title/" "$FILE"
+else
+	cd "$DIR" || exit 1
+	git restore ani-cli
+fi
