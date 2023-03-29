@@ -1,29 +1,32 @@
 #!/bin/bash
 
-# call just the script to change stuff, call it with any argument to revert the changes
-
-# ./ani.patch 1		- changes ani-cli to the modified version
-# ./ani.patch 2		- changes the audio delay to fit bluetooth stuff
-# ./ani.patch		- changes it back so one can pull without conflicts
+# ./ani.patch - reverts the changes so one can pull without conflicts
+# 0 - changes to fullscreen, full volume
+# 1 - adds higher saturation on top of the 0 parameters
+# 2	- changes the audio delay for bluetooth and also fullscreen
 
 declare -r DIR="$HOME/git/ani-cli"
-declare -r FILE="$DIR/ani-cli"
+declare -r FILE="$(which ani-cli)"
 
 orig="\tmpv\*) nohup \"\$player_function\""
-new="$orig --volume=100 --saturation=45 --fs"
-aud="$new --audio-delay=-2.44"
-title=""
+zero="$orig --volume=100 --fs"
+one="$zero --saturation=45"
+two="$orig --audio-delay=-2.44 --fs"
 
-if [ $# == "1" ]; then
-	if [ $1 == "1" ]; then
-		sed -i "s/^${aud}/${orig}/" "$FILE"
-		sed -i "s/^${orig}/${new}/" "$FILE"
-	elif [ $1 == "2" ]; then
-		sed -i "s/^${new}/${orig}/" "$FILE"
-		sed -i "s/^${orig}/${aud}/" "$FILE"
-	fi
-	sed -i "s/\\\{allanime_title/\\\{title/" "$FILE"
-else
-	cd "$DIR" || exit 1
-	git restore ani-cli
-fi
+# cleanup
+cd "$DIR" || exit 1
+git restore ani-cli
+[ $# != "1" ] && exit
+
+# args
+case $1 in
+	"0" ) new="$zero";;
+	"1" ) new="$one";;
+	"2" ) new="$two";;
+	* ) echo "bad argument" && exit 1;;
+esac
+
+# write param changes in ani-cli
+sed -i --follow-symlinks "s/^${orig}/${new}/" "$FILE"
+# change the title so that it looks nicer
+sed -i --follow-symlinks "s/\\\{allanime_title/\\\{title/" "$FILE"
