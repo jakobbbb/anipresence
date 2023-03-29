@@ -9,10 +9,10 @@ import re
 class AniCliRPC:
     anime = None
     mpv_re = re.compile(
-        r".*mpv --force-media-title=(.*)\(.*episodes.*episode-([^-]+).*"
+        r".*mpv.*--force-media-title=(.*)\(.*episodes.*episode-([^-]+).*"
     )
     mpv_re_alt = re.compile(
-        r".*mpv --force-media-title=(.*)-episode-([^-]+).*"
+        r".*mpv.*--force-media-title=(.*)-episode-([^-]+).*"
     )
 
     def get_anime(self):
