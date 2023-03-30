@@ -19,6 +19,7 @@ class AniCliRPC:
     )
     CACHE_PATH = os.path.expanduser("~/.cache/anipresence/cover.json")
     cache = None
+    mpv_pid = None
     rpc: Presence
 
     def __init__(self, client_id):
@@ -34,6 +35,9 @@ class AniCliRPC:
     def get_anime(self):
         ps = os.popen("ps aux").read()
         for line in ps.splitlines():
+            pid = re.split(r"[ ]+", line)[1]
+            if self.mpv_pid is not None and self.mpv_pid != pid:
+                break  # our mpv died
             if m := self.mpv_re.fullmatch(line):
                 return (
                     (m.group("title"), m.group("ep"), m.group("epcount")),
@@ -44,6 +48,7 @@ class AniCliRPC:
                     (m.group("title"), m.group("ep"), None),
                     True,
                 )
+        self.mpv_pid = None
         return None, None
 
     def update(self):
