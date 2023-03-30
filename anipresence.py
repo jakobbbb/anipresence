@@ -19,6 +19,15 @@ class AniCliRPC:
     )
     CACHE_PATH = os.path.expanduser("~/.cache/anipresence/cover.json")
     cache = None
+    rpc: Presence
+
+    def __init__(self, client_id):
+        self.rpc = Presence(client_id)
+        self.rpc.connect()
+
+    def __del__(self):
+        self.rpc.clear()
+        self.rpc.close()
 
     def get_anime(self):
         ps = os.popen("ps aux").read()
@@ -41,6 +50,10 @@ class AniCliRPC:
         if anime_new is None:
             return False
 
+        print(self.anime)
+        print(anime_new)
+        print(self.anime == anime_new)
+
         if self.anime == anime_new:
             return True
 
@@ -53,19 +66,15 @@ class AniCliRPC:
 
         print(f"Watching {title} episode {ep}, epcount {epcount}")
 
-        client_id = "908703808966766602"
+        self.rpc.clear()
 
-        RPC = Presence(client_id)
-        RPC.connect()
-        RPC.clear()
-
-        RPC.update(
+        self.rpc.update(
             details=f"{title}",
             state=f"Episode {ep}",
             large_image=self.try_get_cover_image_url(title, epcount),
             start=int(time.time()),
         )
-        print("Updated RPC")
+        print(f"Updated RPC with {title} and ep {ep}")
 
         return True
 
@@ -79,8 +88,13 @@ class AniCliRPC:
             return True
 
     def loop(self):
+        if self.other_is_running():
+            return
         while self.try_update():
             time.sleep(20)
+
+    def other_is_running(self):
+        return re.match(r"python3.*anipresence.py", os.popen("ps aux").read())
 
     def try_get_cover_image_url(
         self, title, epcount, fallback="watching"
@@ -179,7 +193,8 @@ class AniCliRPC:
 
 
 def main():
-    AniCliRPC().loop()
+    client_id = "908703808966766602"
+    AniCliRPC(client_id).loop()
 
 
 if __name__ == "__main__":
