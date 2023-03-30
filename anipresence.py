@@ -40,7 +40,7 @@ class AniCliRPC:
             if m := self.mpv_re_alt.fullmatch(line):
                 return (
                     (m.group("title"), m.group("ep"), None),
-                    False,
+                    True,
                 )
         return None, None
 
