@@ -73,11 +73,9 @@ class AniCliRPC:
 
         print(f"Watching {title} episode {ep}, epcount {epcount}")
 
-        ep_line = (
-            f"Episode {ep}"
-            if epcount is not None and epcount != "1"
-            else "Watching"
-        )
+        ep_line = f"Episode {ep}"
+        if epcount is not None and epcount == "1":
+            ep_line = "Watching"
 
         self.rpc.clear()
 
