@@ -22,8 +22,10 @@ class AniCliRPC:
     rpc: Presence
 
     def __init__(self, client_id):
+        print("Initializing RPC...")
         self.rpc = Presence(client_id)
         self.rpc.connect()
+        print("...done")
 
     def __del__(self):
         self.rpc.clear()
@@ -66,11 +68,17 @@ class AniCliRPC:
 
         print(f"Watching {title} episode {ep}, epcount {epcount}")
 
+        ep_line = (
+            f"Episode {ep}"
+            if epcount is not None and epcount != "1"
+            else "Watching"
+        )
+
         self.rpc.clear()
 
         self.rpc.update(
             details=f"{title}",
-            state=f"Episode {ep}",
+            state=ep_line,
             large_image=self.try_get_cover_image_url(title, epcount),
             start=int(time.time()),
         )
@@ -79,7 +87,6 @@ class AniCliRPC:
         return True
 
     def try_update(self):
-        self.update()
         try:
             print("Updating")
             return self.update()
