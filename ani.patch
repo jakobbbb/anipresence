@@ -14,10 +14,11 @@ one="$zero --saturation=45"
 two="$orig --audio-delay=-2.44 --fs"
 
 # cleanup
-cd "$DIR" || exit 1
-git restore ani-cli
-[ $# != "1" ] && exit
-
+if [ -d "$DIR" ]; then
+	cd "$DIR" || exit 1
+	git restore ani-cli
+	[ $# != "1" ] && git pull && exit
+fi
 # args
 case $1 in
 	"0" ) new="$zero";;
