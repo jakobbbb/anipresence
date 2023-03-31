@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import time
+from typing import Union
 from pypresence import Presence
 import os
 import re
@@ -20,30 +21,43 @@ class AniCliRPC:
     CACHE_PATH = os.path.expanduser("~/.cache/anipresence/cover.json")
     cache = None
     mpv_pid = None
-    rpc: Presence
+    rpc: Union[Presence, None] = None
 
     def __init__(self, client_id):
+        if self.other_is_running():
+            print("Other instance already running.")
+            return
         print("Initializing RPC...")
         self.rpc = Presence(client_id)
         self.rpc.connect()
         print("...done")
 
     def __del__(self):
-        self.rpc.clear()
-        self.rpc.close()
+        if self.rpc is not None:
+            self.rpc.clear()
+            self.rpc.close()
 
     def get_anime(self):
+        if self.mpv_pid is not None and self.mpv_pid != "PID":
+            try:
+                mpv_pid = int(self.mpv_pid)
+                os.kill(mpv_pid, 0)
+            except OSError:
+                print("Our mpv died")
+                return None, None
         ps = os.popen("ps aux").read()
         for line in ps.splitlines():
             pid = re.split(r"[ ]+", line)[1]
-            if self.mpv_pid is not None and self.mpv_pid != pid:
-                break  # our mpv died
             if m := self.mpv_re.fullmatch(line):
+                if self.mpv_pid is not None:
+                    self.mpv_pid = pid
                 return (
                     (m.group("title"), m.group("ep"), m.group("epcount")),
                     False,
                 )
             if m := self.mpv_re_alt.fullmatch(line):
+                if self.mpv_pid is not None:
+                    self.mpv_pid = pid
                 return (
                     (m.group("title"), m.group("ep"), None),
                     True,
@@ -53,13 +67,10 @@ class AniCliRPC:
 
     def update(self):
         anime_new, hyphenated = self.get_anime()
-
-        if anime_new is None:
-            return False
-
-        print(self.anime)
         print(anime_new)
-        print(self.anime == anime_new)
+
+        if anime_new is None or self.rpc is None:
+            return False
 
         if self.anime == anime_new:
             return True
@@ -101,10 +112,14 @@ class AniCliRPC:
         if self.other_is_running():
             return
         while self.try_update():
-            time.sleep(20)
+            time.sleep(2)
 
     def other_is_running(self):
-        return re.match(r"python3.*anipresence.py", os.popen("ps aux").read())
+        pid = os.getpid()
+        return (
+            "python3"
+            in os.popen(f"ps aux | grep anipresence | grep -v {pid}").read()
+        )
 
     def try_get_cover_image_url(
         self, title, epcount, fallback="watching"
@@ -204,7 +219,8 @@ class AniCliRPC:
 
 def main():
     client_id = "908703808966766602"
-    AniCliRPC(client_id).loop()
+    if a := AniCliRPC(client_id):
+        a.loop()
 
 
 if __name__ == "__main__":
