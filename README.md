@@ -1,4 +1,4 @@
-# discord rich presence for ani-cli
+# discord rich presence for ani-cli/animdl
 
 ![screenshot](screenshot.png)
 
