@@ -18,6 +18,9 @@ class AniCliRPC:
     mpv_re_alt = re.compile(
         r".*mpv.*--force-media-title=(?P<title>.*)-episode-(?P<ep>[^-]+).*"
     )
+    mpv_re_mdl = re.compile(
+        r".*mpv.*--force-media-title=(?P<title>.*): Episode (?P<ep>[0-9]+).*"
+    )
     CACHE_PATH = os.path.expanduser("~/.cache/anipresence/cover.json")
     cache = None
     mpv_pid = None
@@ -48,20 +51,22 @@ class AniCliRPC:
         ps = os.popen("ps aux").read()
         for line in ps.splitlines():
             pid = re.split(r"[ ]+", line)[1]
-            if m := self.mpv_re.fullmatch(line):
-                if self.mpv_pid is not None:
-                    self.mpv_pid = pid
-                return (
-                    (m.group("title"), m.group("ep"), m.group("epcount")),
-                    False,
-                )
-            if m := self.mpv_re_alt.fullmatch(line):
-                if self.mpv_pid is not None:
-                    self.mpv_pid = pid
-                return (
-                    (m.group("title"), m.group("ep"), None),
-                    True,
-                )
+            for r in [self.mpv_re]:
+                if m := r.fullmatch(line):
+                    if self.mpv_pid is not None:
+                        self.mpv_pid = pid
+                    return (
+                        (m.group("title"), m.group("ep"), m.group("epcount")),
+                        False,
+                    )
+            for r in [self.mpv_re_alt, self.mpv_re_mdl]:
+                if m := r.fullmatch(line):
+                    if self.mpv_pid is not None:
+                        self.mpv_pid = pid
+                    return (
+                        (m.group("title"), m.group("ep"), None),
+                        r == self.mpv_re_alt,
+                    )
         self.mpv_pid = None
         return None, None
 
