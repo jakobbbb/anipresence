@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import time
-from typing import Union
+from typing import Pattern, Union
 from pypresence import Presence
 import os
 import re
@@ -9,18 +9,41 @@ import requests
 import json
 
 
-class AniCliRPC:
+class AniPlayerRegex:
+    pattern: Pattern
+    has_epcount: bool
+    is_hyphenated: bool
+
+    def __init__(self, pattern_str, has_epcount, is_hyphenated):
+        self.pattern = re.compile(pattern_str)
+        self.has_epcount = has_epcount
+        self.is_hyphenated = is_hyphenated
+
+
+class AniPresence:
     anime = None
-    mpv_re = re.compile(
-        r".*mpv.*--force-media-title=(?P<title>.*) \((?P<epcount>[0-9]+) "
-        r"episodes.*episode-(?P<ep>[^-]+).*"
-    )
-    mpv_re_alt = re.compile(
-        r".*mpv.*--force-media-title=(?P<title>.*)-episode-(?P<ep>[^-]+).*"
-    )
-    mpv_re_mdl = re.compile(
-        r".*mpv.*--force-media-title=(?P<title>.*): Episode (?P<ep>[0-9]+).*"
-    )
+
+    regexes = [
+        AniPlayerRegex(
+            r".*mpv.*--force-media-title=(?P<title>.*) \((?P<epcount>[0-9]+) "
+            r"episodes.*episode-(?P<ep>[^-]+).*",
+            has_epcount=True,
+            is_hyphenated=False,
+        ),
+        AniPlayerRegex(
+            r".*mpv.*--force-media-title=(?P<title>.*)-"
+            r"episode-(?P<ep>[^-]+).*",
+            has_epcount=False,
+            is_hyphenated=True,
+        ),
+        AniPlayerRegex(
+            r".*mpv.*--force-media-title=(?P<title>.*): "
+            r"Episode (?P<ep>[0-9]+).*",
+            has_epcount=False,
+            is_hyphenated=False,
+        ),
+    ]
+
     CACHE_PATH = os.path.expanduser("~/.cache/anipresence/cover.json")
     cache = None
     mpv_pid = None
@@ -51,21 +74,17 @@ class AniCliRPC:
         ps = os.popen("ps aux").read()
         for line in ps.splitlines():
             pid = re.split(r"[ ]+", line)[1]
-            for r in [self.mpv_re]:
-                if m := r.fullmatch(line):
+            for regex in self.regexes:
+                if m := regex.pattern.fullmatch(line):
                     if self.mpv_pid is not None:
                         self.mpv_pid = pid
                     return (
-                        (m.group("title"), m.group("ep"), m.group("epcount")),
-                        False,
-                    )
-            for r in [self.mpv_re_alt, self.mpv_re_mdl]:
-                if m := r.fullmatch(line):
-                    if self.mpv_pid is not None:
-                        self.mpv_pid = pid
-                    return (
-                        (m.group("title"), m.group("ep"), None),
-                        r == self.mpv_re_alt,
+                        (
+                            m.group("title"),
+                            m.group("ep"),
+                            m.group("epcount") if regex.has_epcount else None,
+                        ),
+                        regex.is_hyphenated,
                     )
         self.mpv_pid = None
         return None, None
@@ -224,7 +243,7 @@ class AniCliRPC:
 
 def main():
     client_id = "908703808966766602"
-    if a := AniCliRPC(client_id):
+    if a := AniPresence(client_id):
         a.loop()
 
 
