@@ -9,6 +9,101 @@ import requests
 import json
 
 
+class MetaDataCache:
+    cache = {}
+    cache_path = None
+
+    def __init__(self, cache_path):
+        self.cache_path = cache_path
+        self.cache = {}
+        cache_dir = os.path.dirname(self.cache_path)
+        if not os.path.exists(cache_dir):
+            os.mkdir(cache_dir)
+        if os.path.exists(self.cache_path):
+            with open(self.cache_path, "r") as f:
+                self.cache = json.loads(f.read())
+        else:
+            self._write_cache()
+
+    def _write_cache(self):
+        with open(self.cache_path, "w+") as f:
+            f.write(json.dumps(self.cache, indent=4))
+
+    def get_cover_image_url(self, title, epcount, fallback="watching") -> str:
+        key = f"{title} -- {epcount}"
+
+        if key not in self.cache.keys():
+            self.cache[key] = self._get_cover_image_url(
+                title, epcount, fallback
+            )
+            self._write_cache()
+
+        return self.cache[key]
+
+    def _get_cover_image_url(self, title, epcount, fallback="watching") -> str:
+        if epcount is not None:
+            epcount = int(epcount)
+
+        query = """
+            query($title: String) {
+              Page(page: 1, perPage: 10) {
+                media(search: $title, type: ANIME) {
+                  title {
+                    romaji
+                    english
+                  }
+                  episodes
+                  coverImage {
+                    medium
+                  }
+                }
+              }
+            }
+        """
+        variables = {"title": title}
+        url = "https://graphql.anilist.co"
+
+        print("Requesting", variables)
+        resp = requests.post(
+            url, json={"query": query, "variables": variables}
+        )
+        print(resp.text)
+        if not resp.status_code == 200:
+            return fallback
+
+        animes = list(resp.json()["data"]["Page"]["media"])
+        anime = None
+
+        if len(animes) > 1:
+            filtered_a = list(
+                filter(
+                    lambda a: a["title"]["romaji"].lower() == title.lower()
+                    and a["episodes"] == epcount,
+                    animes,
+                )
+            )
+            filtered_b = list(
+                filter(
+                    lambda a: a["title"]["romaji"].lower() == title.lower(),
+                    animes,
+                )
+            )
+            filtered_c = list(
+                filter(lambda a: a["episodes"] == epcount, animes)
+            )
+
+            for li in [filtered_a, filtered_b, filtered_c]:
+                if len(li) == 1:
+                    anime = li[0]
+                    break
+        elif len(animes) == 1:
+            anime = animes[0]
+
+        if anime is not None:
+            return anime["coverImage"]["medium"]
+        return fallback
+
+
 class AniPlayerRegex:
     pattern: Pattern
     has_epcount: bool
@@ -45,7 +140,7 @@ class AniPresence:
     ]
 
     CACHE_PATH = os.path.expanduser("~/.cache/anipresence/cover.json")
-    cache = None
+    cache: MetaDataCache
     mpv_pid = None
     rpc: Union[Presence, None] = None
 
@@ -57,6 +152,7 @@ class AniPresence:
         self.rpc = Presence(client_id)
         self.rpc.connect()
         print("...done")
+        self.cache = MetaDataCache(self.CACHE_PATH)
 
     def __del__(self):
         if self.rpc is not None:
@@ -149,96 +245,10 @@ class AniPresence:
         self, title, epcount, fallback="watching"
     ) -> str:
         try:
-            return self.get_cover_image_url(title, epcount, fallback)
+            return self.cache.get_cover_image_url(title, epcount, fallback)
         except Exception as e:
             print(e)
             return fallback
-
-    def get_cover_image_url(self, title, epcount, fallback="watching") -> str:
-        key = f"{title} -- {epcount}"
-        if not self.cache:
-            cachedir = os.path.dirname(self.CACHE_PATH)
-            if not os.path.exists(cachedir):
-                os.mkdir(cachedir)
-            if os.path.exists(self.CACHE_PATH):
-                with open(self.CACHE_PATH, "r") as f:
-                    self.cache = json.loads(f.read())
-            else:
-                with open(self.CACHE_PATH, "w+") as f:
-                    self.cache = {}
-                    f.write(json.dumps(self.cache, indent=4))
-
-        if key not in self.cache.keys():
-            self.cache[key] = self._get_cover_image_url(
-                title, epcount, fallback
-            )
-            with open(self.CACHE_PATH, "w+") as f:
-                f.write(json.dumps(self.cache, indent=4))
-
-        return self.cache[key]
-
-    def _get_cover_image_url(self, title, epcount, fallback="watching") -> str:
-        if epcount is not None:
-            epcount = int(epcount)
-
-        query = """
-            query($title: String) {
-              Page(page: 1, perPage: 10) {
-                media(search: $title, type: ANIME) {
-                  title {
-                    romaji
-                    english
-                  }
-                  episodes
-                  coverImage {
-                    medium
-                  }
-                }
-              }
-            }
-        """
-        variables = {"title": title}
-        url = "https://graphql.anilist.co"
-
-        print("Requesting", variables)
-        resp = requests.post(
-            url, json={"query": query, "variables": variables}
-        )
-        print(resp.text)
-        if not resp.status_code == 200:
-            return fallback
-
-        animes = list(resp.json()["data"]["Page"]["media"])
-        anime = None
-
-        if len(animes) > 1:
-            filtered_a = list(
-                filter(
-                    lambda a: a["title"]["romaji"].lower() == title.lower()
-                    and a["episodes"] == epcount,
-                    animes,
-                )
-            )
-            filtered_b = list(
-                filter(
-                    lambda a: a["title"]["romaji"].lower() == title.lower(),
-                    animes,
-                )
-            )
-            filtered_c = list(
-                filter(lambda a: a["episodes"] == epcount, animes)
-            )
-
-            for li in [filtered_a, filtered_b, filtered_c]:
-                if len(li) == 1:
-                    anime = li[0]
-                    break
-        elif len(animes) == 1:
-            anime = animes[0]
-
-        if anime is not None:
-            return anime["coverImage"]["medium"]
-        return fallback
 
 
 def main():
