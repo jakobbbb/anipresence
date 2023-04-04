@@ -166,14 +166,14 @@ class AniPresence:
             else:
                 with open(self.CACHE_PATH, "w+") as f:
                     self.cache = {}
-                    f.write(json.dumps(self.cache))
+                    f.write(json.dumps(self.cache, indent=4))
 
         if key not in self.cache.keys():
             self.cache[key] = self._get_cover_image_url(
                 title, epcount, fallback
             )
             with open(self.CACHE_PATH, "w+") as f:
-                f.write(json.dumps(self.cache))
+                f.write(json.dumps(self.cache, indent=4))
 
         return self.cache[key]
 
