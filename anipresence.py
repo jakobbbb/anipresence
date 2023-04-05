@@ -143,6 +143,7 @@ class AniPresence:
     cache: MetaDataCache
     mpv_pid = None
     rpc: Union[Presence, None] = None
+    rpc_connected = False
 
     def __init__(self, client_id):
         if self.other_is_running():
@@ -151,11 +152,12 @@ class AniPresence:
         print("Initializing RPC...")
         self.rpc = Presence(client_id)
         self.rpc.connect()
+        self.rpc_connected = True
         print("...done")
         self.cache = MetaDataCache(self.CACHE_PATH)
 
     def __del__(self):
-        if self.rpc is not None:
+        if self.rpc is not None and self.rpc_connected:
             self.rpc.clear()
             self.rpc.close()
 
@@ -253,8 +255,11 @@ class AniPresence:
 
 def main():
     client_id = "908703808966766602"
-    if a := AniPresence(client_id):
-        a.loop()
+    try:
+        if a := AniPresence(client_id):
+            a.loop()
+    except ConnectionRefusedError:
+        print("Connection refused.  Is Discord running?")
 
 
 if __name__ == "__main__":
