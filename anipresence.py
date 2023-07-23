@@ -132,7 +132,7 @@ class AniPresence:
             is_hyphenated=True,
         ),
         AniPlayerRegex(
-            r".*mpv.*--force-media-title=(?P<title>.*): "
+            r".*mpv.*--force-media-title=(?P<title>.*) "
             r"Episode (?P<ep>[0-9]+).*",
             has_epcount=False,
             is_hyphenated=False,
