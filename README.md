@@ -8,7 +8,9 @@ discord rich presence for ani-cli/animdl:
 
 your player must be `mpv`, and you must have `pypresence` installed.
 
-From AUR: `yay -S python-pypresence`.
+from AUR: `yay -S python-pypresence`.
+
+note that this probably won't work on Windows.
 
 ## how
 
