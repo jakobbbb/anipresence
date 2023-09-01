@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# ./ani.patch - reverts the changes so one can pull without conflicts
+# ./ani-patch.sh - reverts the changes so one can pull without conflicts
 # 0 - changes to fullscreen, full volume
 # 1 - adds higher saturation on top of the 0 parameters
 # 2	- changes the audio delay for bluetooth and also fullscreen
