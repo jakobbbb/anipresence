@@ -9,6 +9,9 @@ import json
 import os.path
 import re
 import sys
+import time
+import signal
+from subprocess import Popen, PIPE
 
 def get_al_list(username, medium="ANIME", status="CURRENT"):
         query = '''
@@ -63,16 +66,13 @@ def get_hash(ale, ace):
     for i in ale:
         found = False
         for j in ace:
-            if i["media"]["title"]["romaji"] == j[3]:
+            if i["media"]["title"]["romaji"].casefold() == j[3].casefold():
                 found = True
                 hash.append(j[1])
                 ace.remove(j)
                 break
         if found == False:
-            # this is a placeholder
-            # the new title will be in the history but not show up
-            # TODO add the hash gen here
-            hash.append("00000000000000000")
+            hash.append("0")
             print("couldn't find hash for \"" + i["media"]["title"]["romaji"] + "\" in hist")
     return hash
 
@@ -80,10 +80,10 @@ def update_list(ale, hl):
     entries = []
     idx = 0
     for i in ale:
-        s = str(i["progress"]) + "\t" + str(hl[idx]) + "\t" + i["media"]["title"]["romaji"] + " (" + str(i["media"]["episodes"]) +" episodes)\n"
-        entries.append(s)
-        idx = idx + 1
-        print(s)
+        if hl[idx] != "0":
+            s = str(i["progress"]) + "\t" + str(hl[idx]) + "\t" + i["media"]["title"]["romaji"] + " (" + str(i["media"]["episodes"]) +" episodes)\n"
+            entries.append(s)
+            idx = idx + 1
     return entries
 
 def main():
@@ -107,6 +107,21 @@ def main():
     with open(ac_hist, "w") as newhs:
         for i in new_entries:
             newhs.write(i)
+
+    idx = 0
+    for i in al_entries:
+        if hash_list[idx] == "0":
+            process = Popen(["ani-cli", i["media"]["title"]["romaji"], "-e", str(i["progress"])], stdout=PIPE, stdin=PIPE)
+            # TODO fix
+            # while mpv has no pid -> sleep, else wait 1s, kill
+            # pid = os.popen(f"ps aux | grep mpv | grep \"title=" + i["media"]["title"]["romaji"] + "\" | awk '{print $2}'").read()
+            # print(pid)
+            # ugly and bad but it wouldnt cooperate with pid stuff :(
+            # ideally os.kill(pid, signal.SIGKILL)
+            time.sleep(5)
+            os.popen(f"pkill -9 mpv")
+            process.kill()
+        idx = idx + 1
 
 if __name__ == "__main__":
     main()
