@@ -7,7 +7,7 @@ help() {
     echo "./ani-patch.sh - reverts the changes so one can pull without conflicts"
     echo "0 - changes to fullscreen, full volume"
     echo "1 - adds higher saturation on top of the 0 parameters"
-    echo "2	- changes the audio delay for bluetooth and also fullscreen"
+    echo "2 - changes the audio delay for bluetooth and also fullscreen"
     exit 0
 }
 
@@ -27,7 +27,7 @@ case $1 in
 	"0" ) new="$zero";;
 	"1" ) new="$one";;
 	"2" ) new="$two";;
-	* ) echo "bad argument" && help ;;
+	* ) echo "bad argument" && help;;
 esac
 
 # write param changes in ani-cli
