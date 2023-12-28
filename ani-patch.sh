@@ -1,12 +1,15 @@
 #!/bin/bash
 
-# ./ani-patch.sh - reverts the changes so one can pull without conflicts
-# 0 - changes to fullscreen, full volume
-# 1 - adds higher saturation on top of the 0 parameters
-# 2	- changes the audio delay for bluetooth and also fullscreen
-
 declare -r DIR="$HOME/git/ani-cli"
 declare -r FILE="$(which ani-cli)"
+
+help() {
+    echo "./ani-patch.sh - reverts the changes so one can pull without conflicts"
+    echo "0 - changes to fullscreen, full volume"
+    echo "1 - adds higher saturation on top of the 0 parameters"
+    echo "2	- changes the audio delay for bluetooth and also fullscreen"
+    exit 0
+}
 
 orig="        mpv\*) nohup \"\$player_function\""
 zero="$orig --volume=100 --fs"
@@ -24,7 +27,7 @@ case $1 in
 	"0" ) new="$zero";;
 	"1" ) new="$one";;
 	"2" ) new="$two";;
-	* ) echo "bad argument" && exit 1;;
+	* ) echo "bad argument" && help ;;
 esac
 
 # write param changes in ani-cli
