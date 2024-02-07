@@ -11,7 +11,7 @@ help() {
     exit 0
 }
 
-orig="        mpv\*) nohup \"\$player_function\""
+orig="        mpv\*) \$(\[ \"\$no_detach\" = 0 \] \&\& echo \"nohup\") \"\$player_function\""
 zero="$orig --volume=100 --fs"
 one="$zero --saturation=45"
 two="$orig --audio-delay=-2.44 --fs"
