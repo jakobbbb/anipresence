@@ -11,7 +11,9 @@ help() {
     exit 0
 }
 
-orig="        mpv\*) \$(\[ \"\$no_detach\" = 0 \] \&\& echo \"nohup\") \"\$player_function\""
+# have noch checked out the skip feature, orig below might need to be uncommented instead
+# orig="                nohup \"\$player_function\" \$skip_flag --force-media-title=\"\${allanime_title}Episode \${ep_no}\" \"\$episode\""
+orig="                nohup \"\$player_function\""
 zero="$orig --volume=100 --fs"
 one="$zero --saturation=45"
 two="$orig --audio-delay=-2.44 --fs"
@@ -32,5 +34,3 @@ esac
 
 # write param changes in ani-cli
 sed -i --follow-symlinks "s/^${orig}/${new}/" "$FILE"
-# change the title so that it looks nicer
-sed -i --follow-symlinks "s/\\\{allanime_title/\\\{title/" "$FILE"
