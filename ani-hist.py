@@ -64,7 +64,7 @@ def get_ac_list(hist_path, hist_file):
             tmp = line.split("\t")
             # remove ep count
             # could be improved by going from the left removing everything till "(" +1
-            tmp.append(re.sub(" \([0-9]+ episodes\)\n", "", tmp[2]))
+            tmp.append(re.sub(" \\([0-9]+ episodes\\)\n", "", tmp[2]))
             tmp_res.append(tmp)
     return tmp_res
 
