@@ -8,6 +8,7 @@ import os
 import re
 import requests
 import json
+import argparse
 
 
 class TitleFormat(Enum):
@@ -47,7 +48,7 @@ class MetaDataCache:
             self._write_cache()
 
     def _write_cache(self):
-        with open(self.cache_path, "w+") as f:
+        with open(self.cache_path, "w+", encoding='utf-8') as f:
             f.write(json.dumps(self.cache, indent=4))
 
     def get_cover_image_url(self, anime:Anime, fallback="watching") -> Anime:
@@ -58,6 +59,7 @@ class MetaDataCache:
             new_anime = self._get_cover_image_url(
                 anime, fallback
             )
+            # creating the new anime json object
             self.cache[key]= {
                 "displaytitle"  : new_anime.display_title,
                 "epcount"       : new_anime.epcount,
@@ -105,55 +107,49 @@ class MetaDataCache:
         if not resp.status_code == 200:
             return fallback
 
-        animes = list(resp.json()["data"]["Page"]["media"])
-        al_anime = None
+        json_animes = list(resp.json()["data"]["Page"]["media"])
+        json_anime = None
 
-        print(animes)
-
-        if len(animes) > 1:
+        if len(json_animes) > 1:
             filtered_a = list(
                 filter(
                     lambda a: a["title"]["romaji"].lower() == anime.mpv_title.lower(),
-                    animes,
+                    json_animes,
                 )
             )
             filtered_b = list(
                 filter(
                     lambda a: a["title"]["english"] is not None and a["title"]["english"].lower() == anime.mpv_title.lower(),
-                    animes,
+                    json_animes,
                 )
             )
 
             for li in [filtered_a, filtered_b]: #, filtered_c]:
                 if len(li) == 1:
-                    al_anime = li[0]
+                    json_anime = li[0]
                     break
-        elif len(animes) == 1:
-            al_anime = animes[0]
+        elif len(json_animes) == 1:
+            json_anime = json_animes[0]
 
         # todo check if english title exists?
-        if al_anime is not None:
+        if json_anime is not None:
             if anime.title_format == TitleFormat.NATIVE:
-                anime.display_title = al_anime["title"]["native"]
+                anime.display_title = json_anime["title"]["native"]
             elif anime.title_format == TitleFormat.ENGLISH:
-                anime.display_title = al_anime["title"]["english"]
-            anime.epcount = al_anime["episodes"]
-            anime.duration = al_anime["duration"]
-            anime.imglink = al_anime["coverImage"]["medium"]
-        else:
-            # create basic oject
-            anime.imglink = fallback
+                anime.display_title = json_anime["title"]["english"]
+            anime.epcount = json_anime["episodes"]
+            anime.duration = json_anime["duration"]
+            anime.imglink = json_anime["coverImage"]["medium"]
+
         return anime
 
 
 class AniPlayerRegex:
     pattern: Pattern
-    has_epcount: bool
     is_hyphenated: bool
 
-    def __init__(self, pattern_str, has_epcount, is_hyphenated):
+    def __init__(self, pattern_str, is_hyphenated):
         self.pattern = re.compile(pattern_str)
-        self.has_epcount = has_epcount
         self.is_hyphenated = is_hyphenated
 
 
@@ -162,21 +158,13 @@ class AniPresence:
 
     regexes = [
         AniPlayerRegex(
-            r".*mpv.*--force-media-title=(?P<title>.*) \((?P<epcount>[0-9]+) "
-            r"episodes.*episode-(?P<ep>[^-]+).*",
-            has_epcount=True,
-            is_hyphenated=False,
-        ),
-        AniPlayerRegex(
             r".*mpv.*--force-media-title=(?P<title>.*)-"
             r"episode-(?P<ep>[^-]+).*",
-            has_epcount=False,
             is_hyphenated=True,
         ),
         AniPlayerRegex(
             r".*mpv.*--force-media-title=(?P<title>.*) "
             r"Episode (?P<ep>[0-9]+).*",
-            has_epcount=False,
             is_hyphenated=False,
         ),
     ]
@@ -245,6 +233,7 @@ class AniPresence:
         if self.anime.hyphenated and self.title_format != TitleFormat.NATIVE :
             self.anime.display_title = " ".join([word.capitalize() for word in self.anime.mpv_title.split("-")])
 
+        # set relevant values for anime object from cache / AL
         self.try_get_cover_image_url()
 
         print(f"Watching {self.anime.display_title} episode {self.anime.currep}, epcount {self.anime.epcount}")
@@ -296,9 +285,29 @@ class AniPresence:
 
 
 def main():
+    # parsing
+    parser = argparse.ArgumentParser(
+        prog="anipresence", description="Dicord rpc for ani-cli"
+    )
+    parser.add_argument(
+        "-t",
+        "--titleformat",
+        nargs="?",
+        choices=['r', 'romaji', 'n', 'native', 'e', 'english'],
+        default=TitleFormat.ROMAJI,
+        help="which title to use ([R]omaji/ [n]ative / [e]nglish)"
+    )
+    args = parser.parse_args()
+    if args.titleformat == 'n' or args.titleformat == 'native':
+        title_format = TitleFormat.NATIVE
+    elif args.titleformat == 'e' or args.titleformat == 'english':
+        title_format = TitleFormat.ENGLISH
+    else:
+        title_format = TitleFormat.ROMAJI
+    print(f"using {title_format} for displaying titles")
+
+    # rpc 
     client_id = "908703808966766602"
-    # Options: ROMAJI, NATIVE, ENGLISH
-    title_format = TitleFormat.NATIVE
     try:
         if a := AniPresence(client_id, title_format):
             a.loop()
