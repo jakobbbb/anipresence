@@ -2,11 +2,32 @@
 
 import time
 from typing import Pattern, Union
+from enum import Enum
 from pypresence import Presence
 import os
 import re
 import requests
 import json
+
+
+class TitleFormat(Enum):
+    ROMAJI = 1
+    NATIVE = 2
+    ENGLISH = 3    
+
+class Anime:
+    display_title = mpv_title = ""
+    imglink = "watching" # fallback is set by default
+    currep = 1
+    epcount = duration = 0
+    hyphenated = False
+    title_format = TitleFormat.ROMAJI
+
+    def __init__(self, title, currep, hyphenated, format):
+        self.display_title = self.mpv_title = title
+        self.currep = currep
+        self.hyphenated = hyphenated
+        self.title_format = format
 
 
 class MetaDataCache:
@@ -20,7 +41,7 @@ class MetaDataCache:
         if not os.path.exists(cache_dir):
             os.mkdir(cache_dir)
         if os.path.exists(self.cache_path):
-            with open(self.cache_path, "r") as f:
+            with open(self.cache_path, "r", encoding='utf-8') as f:
                 self.cache = json.loads(f.read())
         else:
             self._write_cache()
@@ -29,20 +50,32 @@ class MetaDataCache:
         with open(self.cache_path, "w+") as f:
             f.write(json.dumps(self.cache, indent=4))
 
-    def get_cover_image_url(self, title, epcount, fallback="watching") -> str:
-        key = f"{title} -- {epcount}"
+    def get_cover_image_url(self, anime:Anime, fallback="watching") -> Anime:
+        # new key since epcount can't be determined until after the AL query
+        key = f"{anime.mpv_title}"
 
         if key not in self.cache.keys():
-            self.cache[key] = self._get_cover_image_url(
-                title, epcount, fallback
+            new_anime = self._get_cover_image_url(
+                anime, fallback
             )
+            self.cache[key]= {
+                "displaytitle"  : new_anime.display_title,
+                "epcount"       : new_anime.epcount,
+                "duration"      : new_anime.duration,
+                "imglink"       : new_anime.imglink
+            }
             self._write_cache()
+            return new_anime
+        else:
+            print(self.cache)
+            updated_anime = anime
+            updated_anime.display_title = self.cache[key]["displaytitle"]
+            updated_anime.epcount       = self.cache[key]["epcount"]
+            updated_anime.duration      = self.cache[key]["duration"]
+            updated_anime.imglink       = self.cache[key]["imglink"]
+            return updated_anime
 
-        return self.cache[key]
-
-    def _get_cover_image_url(self, title, epcount, fallback="watching") -> str:
-        if epcount is not None:
-            epcount = int(epcount)
+    def _get_cover_image_url(self, anime:Anime, fallback="watching") -> Anime:
 
         query = """
             query($title: String) {
@@ -51,8 +84,10 @@ class MetaDataCache:
                   title {
                     romaji
                     english
+                    native
                   }
                   episodes
+                  duration
                   coverImage {
                     medium
                   }
@@ -60,48 +95,55 @@ class MetaDataCache:
               }
             }
         """
-        variables = {"title": title}
+        variables = {"title": anime.mpv_title}
         url = "https://graphql.anilist.co"
 
         print("Requesting", variables)
         resp = requests.post(
             url, json={"query": query, "variables": variables}
         )
-        print(resp.text)
         if not resp.status_code == 200:
             return fallback
 
         animes = list(resp.json()["data"]["Page"]["media"])
-        anime = None
+        al_anime = None
+
+        print(animes)
 
         if len(animes) > 1:
             filtered_a = list(
                 filter(
-                    lambda a: a["title"]["romaji"].lower() == title.lower()
-                    and a["episodes"] == epcount,
+                    lambda a: a["title"]["romaji"].lower() == anime.mpv_title.lower(),
                     animes,
                 )
             )
             filtered_b = list(
                 filter(
-                    lambda a: a["title"]["romaji"].lower() == title.lower(),
+                    lambda a: a["title"]["english"] is not None and a["title"]["english"].lower() == anime.mpv_title.lower(),
                     animes,
                 )
             )
-            filtered_c = list(
-                filter(lambda a: a["episodes"] == epcount, animes)
-            )
 
-            for li in [filtered_a, filtered_b, filtered_c]:
+            for li in [filtered_a, filtered_b]: #, filtered_c]:
                 if len(li) == 1:
-                    anime = li[0]
+                    al_anime = li[0]
                     break
         elif len(animes) == 1:
-            anime = animes[0]
+            al_anime = animes[0]
 
-        if anime is not None:
-            return anime["coverImage"]["medium"]
-        return fallback
+        # todo check if english title exists?
+        if al_anime is not None:
+            if anime.title_format == TitleFormat.NATIVE:
+                anime.display_title = al_anime["title"]["native"]
+            elif anime.title_format == TitleFormat.ENGLISH:
+                anime.display_title = al_anime["title"]["english"]
+            anime.epcount = al_anime["episodes"]
+            anime.duration = al_anime["duration"]
+            anime.imglink = al_anime["coverImage"]["medium"]
+        else:
+            # create basic oject
+            anime.imglink = fallback
+        return anime
 
 
 class AniPlayerRegex:
@@ -116,7 +158,7 @@ class AniPlayerRegex:
 
 
 class AniPresence:
-    anime = None
+    anime: Anime
 
     regexes = [
         AniPlayerRegex(
@@ -144,8 +186,9 @@ class AniPresence:
     mpv_pid = None
     rpc: Union[Presence, None] = None
     rpc_connected = False
+    title_format = TitleFormat.ROMAJI # fallback if not set
 
-    def __init__(self, client_id):
+    def __init__(self, client_id, title_format):
         if self.other_is_running():
             print("Other instance already running.")
             return
@@ -154,6 +197,8 @@ class AniPresence:
         self.rpc.connect()
         self.rpc_connected = True
         print("...done")
+        self.anime = Anime
+        self.title_format = title_format
         self.cache = MetaDataCache(self.CACHE_PATH)
 
     def __del__(self):
@@ -161,7 +206,7 @@ class AniPresence:
             self.rpc.clear()
             self.rpc.close()
 
-    def get_anime(self):
+    def get_anime(self) -> Anime:
         if self.mpv_pid is not None and self.mpv_pid != "PID":
             try:
                 mpv_pid = int(self.mpv_pid)
@@ -176,49 +221,48 @@ class AniPresence:
                 if m := regex.pattern.fullmatch(line):
                     if self.mpv_pid is not None:
                         self.mpv_pid = pid
-                    return (
-                        (
-                            m.group("title"),
-                            m.group("ep"),
-                            m.group("epcount") if regex.has_epcount else None,
-                        ),
+                    return Anime(
+                        m.group("title"),
+                        m.group("ep"),
                         regex.is_hyphenated,
+                        self.title_format
                     )
         self.mpv_pid = None
-        return None, None
+        return None
 
     def update(self):
-        anime_new, hyphenated = self.get_anime()
-        print(anime_new)
+        # get currently playing anime from mpv (usually in romaji)
+        newanime = self.get_anime()
 
-        if anime_new is None or self.rpc is None:
+        if newanime is None or self.rpc is None:
             return False
 
-        if self.anime == anime_new:
+        if self.anime.mpv_title == newanime.mpv_title and self.anime.currep == newanime.currep:
             return True
 
-        self.anime = anime_new
+        self.anime = newanime
 
-        title, ep, epcount = self.anime
+        if self.anime.hyphenated and self.title_format != TitleFormat.NATIVE :
+            self.anime.display_title = " ".join([word.capitalize() for word in self.anime.mpv_title.split("-")])
 
-        if hyphenated:
-            title = " ".join([word.capitalize() for word in title.split("-")])
+        self.try_get_cover_image_url()
 
-        print(f"Watching {title} episode {ep}, epcount {epcount}")
+        print(f"Watching {self.anime.display_title} episode {self.anime.currep}, epcount {self.anime.epcount}")
 
-        ep_line = f"Episode {ep}"
-        if epcount is not None and epcount == "1":
+        ep_line = f"Episode {self.anime.currep}"
+        if self.anime.epcount == 1:
             ep_line = "Watching"
 
         self.rpc.clear()
 
         self.rpc.update(
-            details=f"{title}",
+            details=f"{self.anime.display_title}",
             state=ep_line,
-            large_image=self.try_get_cover_image_url(title, epcount),
+            large_image=self.anime.imglink,
             start=int(time.time()),
+            end=int(time.time() + self.anime.duration * 60)
         )
-        print(f"Updated RPC with {title} and ep {ep}")
+        print(f"Updated RPC with {self.anime.display_title} and ep {self.anime.currep}")
 
         return True
 
@@ -243,20 +287,20 @@ class AniPresence:
             in os.popen(f"ps aux | grep anipresence | grep -v {pid}").read()
         )
 
-    def try_get_cover_image_url(
-        self, title, epcount, fallback="watching"
-    ) -> str:
+    def try_get_cover_image_url(self, fallback="watching"):
         try:
-            return self.cache.get_cover_image_url(title, epcount, fallback)
+            self.anime = self.cache.get_cover_image_url(self.anime, fallback)
         except Exception as e:
             print(e)
-            return fallback
+            return
 
 
 def main():
     client_id = "908703808966766602"
+    # Options: ROMAJI, NATIVE, ENGLISH
+    title_format = TitleFormat.NATIVE
     try:
-        if a := AniPresence(client_id):
+        if a := AniPresence(client_id, title_format):
             a.loop()
     except ConnectionRefusedError:
         print("Connection refused.  Is Discord running?")
