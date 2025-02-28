@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
 
-import time
-from typing import Pattern, Union
-from enum import Enum
-from pypresence import Presence
 import os
 import re
 import requests
 import json
 import argparse
+import time
+
+from typing import Pattern, Union
+from enum import Enum
+
+from pypresence import Presence
+# check pypresence ActivityType support
+try:
+    from pypresence import ActivityType
+    ACTIVITY_TYPE_SUPPORT = True
+except ImportError:
+    ACTIVITY_TYPE_SUPPORT = False
 
 
 class TitleFormat(Enum):
@@ -245,7 +253,7 @@ class AniPresence:
         # set relevant values for anime object from cache / AL
         self.try_get_cover_image_url()
 
-        print(f"Watching {self.anime.display_title} episode {self.anime.currep}, epcount {self.anime.epcount}")
+        print(f"Watching {self.anime.mpv_title} episode {self.anime.currep}, epcount {self.anime.epcount}")
 
         ep_line = f"Episode {self.anime.currep}"
         if self.anime.epcount != 0:
@@ -254,16 +262,20 @@ class AniPresence:
             ep_line = "Watching"
         
 
+        update_args = {
+            "details": f"{self.anime.display_title}",
+            "state": ep_line,
+            "large_image":self.anime.imglink,
+            "start": int(time.time()),
+            "end": int(time.time()) + int(self.anime.duration) * 60
+        }
         self.rpc.clear()
 
-        self.rpc.update(
-            details=f"{self.anime.display_title}",
-            state=ep_line,
-            large_image=self.anime.imglink,
-            start=int(time.time()),
-            end=int(time.time()) + int(self.anime.duration) * 60
-        )
-        print(f"Updated RPC with {self.anime.display_title} and ep {self.anime.currep}")
+        if ACTIVITY_TYPE_SUPPORT:
+            self.rpc.update(activity_type=ActivityType.WATCHING, **update_args)
+        else:
+            self.rpc.update(**update_args)
+        print(f"Updated RPC with {self.anime.display_title} {ep_line}")
 
         return True
 
