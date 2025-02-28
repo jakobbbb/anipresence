@@ -53,7 +53,7 @@ class MetaDataCache:
 
     def get_cover_image_url(self, anime:Anime, fallback="watching") -> Anime:
         # new key since epcount can't be determined until after the AL query
-        key = f"{anime.mpv_title}"
+        key = anime.mpv_title
 
         if key not in self.cache.keys():
             new_anime = self._get_cover_image_url(
@@ -68,14 +68,13 @@ class MetaDataCache:
             }
             self._write_cache()
             return new_anime
-        else:
-            print(self.cache)
-            updated_anime = anime
-            updated_anime.display_title = self.cache[key]["displaytitle"]
-            updated_anime.epcount       = self.cache[key]["epcount"]
-            updated_anime.duration      = self.cache[key]["duration"]
-            updated_anime.imglink       = self.cache[key]["imglink"]
-            return updated_anime
+
+        updated_anime = anime
+        updated_anime.display_title = self.cache[key]["displaytitle"]
+        updated_anime.epcount       = self.cache[key]["epcount"]
+        updated_anime.duration      = self.cache[key]["duration"]
+        updated_anime.imglink       = self.cache[key]["imglink"]
+        return updated_anime
 
     def _get_cover_image_url(self, anime:Anime, fallback="watching") -> Anime:
 
@@ -88,6 +87,7 @@ class MetaDataCache:
                     english
                     native
                   }
+                  synonyms
                   episodes
                   duration
                   coverImage {
@@ -111,20 +111,29 @@ class MetaDataCache:
         json_anime = None
 
         if len(json_animes) > 1:
+            # romaji
             filtered_a = list(
                 filter(
                     lambda a: a["title"]["romaji"].lower() == anime.mpv_title.lower(),
                     json_animes,
                 )
             )
+            # english
             filtered_b = list(
                 filter(
                     lambda a: a["title"]["english"] is not None and a["title"]["english"].lower() == anime.mpv_title.lower(),
                     json_animes,
                 )
             )
+            # synonyms
+            filtered_c = list(
+                filter(
+                    lambda a: len(a["synonyms"]) != 0 and any(i.lower() == anime.mpv_title.lower() for i in a["synonyms"]),
+                    json_animes,
+                )
+            )
 
-            for li in [filtered_a, filtered_b]: #, filtered_c]:
+            for li in [filtered_a, filtered_b, filtered_c]:
                 if len(li) == 1:
                     json_anime = li[0]
                     break
@@ -239,8 +248,11 @@ class AniPresence:
         print(f"Watching {self.anime.display_title} episode {self.anime.currep}, epcount {self.anime.epcount}")
 
         ep_line = f"Episode {self.anime.currep}"
+        if self.anime.epcount != 0:
+            ep_line = f"{ep_line} / {self.anime.epcount}"
         if self.anime.epcount == 1:
             ep_line = "Watching"
+        
 
         self.rpc.clear()
 
@@ -249,7 +261,7 @@ class AniPresence:
             state=ep_line,
             large_image=self.anime.imglink,
             start=int(time.time()),
-            end=int(time.time() + self.anime.duration * 60)
+            end=int(time.time()) + int(self.anime.duration) * 60
         )
         print(f"Updated RPC with {self.anime.display_title} and ep {self.anime.currep}")
 
