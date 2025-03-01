@@ -39,6 +39,11 @@ class Anime:
         self.title_format = format
 
 
+def cmp_str(str_1, str_2) -> bool:
+    a = str_1.lower().replace(" ", "")
+    b = str_2.lower().replace(" ", "")
+    return a == b
+
 class MetaDataCache:
     cache = {}
     cache_path = None
@@ -122,21 +127,21 @@ class MetaDataCache:
             # romaji
             filtered_a = list(
                 filter(
-                    lambda a: a["title"]["romaji"].lower() == anime.mpv_title.lower(),
+                    lambda a: cmp_str(a["title"]["romaji"], anime.mpv_title),
                     json_animes,
                 )
             )
             # english
             filtered_b = list(
                 filter(
-                    lambda a: a["title"]["english"] is not None and a["title"]["english"].lower() == anime.mpv_title.lower(),
+                    lambda a: a["title"]["english"] is not None and cmp_str(a["title"]["english"], anime.mpv_title),
                     json_animes,
                 )
             )
             # synonyms
             filtered_c = list(
                 filter(
-                    lambda a: len(a["synonyms"]) != 0 and any(i.lower() == anime.mpv_title.lower() for i in a["synonyms"]),
+                    lambda a: len(a["synonyms"]) != 0 and any(cmp_str(i.lower(), anime.mpv_title) for i in a["synonyms"]),
                     json_animes,
                 )
             )
@@ -266,9 +271,12 @@ class AniPresence:
             "details": f"{self.anime.display_title}",
             "state": ep_line,
             "large_image":self.anime.imglink,
-            "start": int(time.time()),
-            "end": int(time.time()) + int(self.anime.duration) * 60
+            "start": int(time.time())
         }
+
+        if self.anime.duration != 0:
+            update_args["end"] = int(time.time()) + int(self.anime.duration) * 60
+
         self.rpc.clear()
 
         if ACTIVITY_TYPE_SUPPORT:
