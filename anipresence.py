@@ -10,19 +10,26 @@ import time
 from typing import Pattern, Union
 from enum import Enum
 
-from pypresence import Presence
-# check pypresence ActivityType support
+# check if pypresence / lynxpresence is available and if 'ActivityType' is supported
 try:
+    from pypresence import Presence
     from pypresence import ActivityType
     ACTIVITY_TYPE_SUPPORT = True
-except ImportError:
-    ACTIVITY_TYPE_SUPPORT = False
+
+except ImportError or ModuleNotFoundError:
+    try:
+        from lynxpresence import Presence
+        from lynxpresence import ActivityType
+        ACTIVITY_TYPE_SUPPORT = True
+
+    except ModuleNotFoundError:
+        ACTIVITY_TYPE_SUPPORT = False
 
 
 class TitleFormat(Enum):
     ROMAJI = 1
     NATIVE = 2
-    ENGLISH = 3    
+    ENGLISH = 3
 
 class Anime:
     display_title = mpv_title = ""
@@ -265,7 +272,6 @@ class AniPresence:
             ep_line = f"{ep_line} / {self.anime.epcount}"
         if self.anime.epcount == 1:
             ep_line = "Watching"
-        
 
         update_args = {
             "details": f"{self.anime.display_title}",
@@ -338,7 +344,7 @@ def main():
         title_format = TitleFormat.ROMAJI
     print(f"using {title_format} for displaying titles")
 
-    # rpc 
+    # rpc
     client_id = "908703808966766602"
     try:
         if a := AniPresence(client_id, title_format):
