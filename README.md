@@ -12,6 +12,8 @@ your player must be `mpv`, and you must have either `pypresence` or `lynxpresenc
 
 from AUR: `yay -S python-pypresence` / `yay -S python-lynxpresence`.
 
+for Discord to display 'Watching' instead of 'Playing' you'll currently need either lynxpresence or the [git version](https://github.com/qwertyquerty/pypresence#Installation) of pypresence.
+
 note that this probably won't work on Windows.
 
 ## how

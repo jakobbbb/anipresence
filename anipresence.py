@@ -75,10 +75,11 @@ class MetaDataCache:
         # new key since epcount can't be determined until after the AL query
         key = anime.mpv_title
 
-        if key not in self.cache.keys():
+        if key not in self.cache.keys() or self.cache[key]["epcount"] is None or self.cache[key]["duration"] is None:
             new_anime = self._get_cover_image_url(
                 anime, fallback
             )
+            print("gaming")
             # creating the new anime json object
             self.cache[key]= {
                 "displaytitle"  : new_anime.display_title,
@@ -94,6 +95,7 @@ class MetaDataCache:
         updated_anime.epcount       = self.cache[key]["epcount"]
         updated_anime.duration      = self.cache[key]["duration"]
         updated_anime.imglink       = self.cache[key]["imglink"]
+
         return updated_anime
 
     def _get_cover_image_url(self, anime:Anime, fallback="watching") -> Anime:
@@ -267,11 +269,11 @@ class AniPresence:
 
         print(f"Watching {self.anime.mpv_title} episode {self.anime.currep}, epcount {self.anime.epcount}")
 
-        ep_line = f"Episode {self.anime.currep}"
-        if self.anime.epcount != 0:
-            ep_line = f"{ep_line} / {self.anime.epcount}"
-        if self.anime.epcount == 1:
+        if self.anime.epcount == 1 or self.anime.epcount is None:
+            # this is kinda redundant with the activity type watching, but idk what'd be better
             ep_line = "Watching"
+        elif self.anime.epcount :
+            ep_line = f"Episode {self.anime.currep} / {self.anime.epcount}"
 
         update_args = {
             "details": f"{self.anime.display_title}",
@@ -280,7 +282,7 @@ class AniPresence:
             "start": int(time.time())
         }
 
-        if self.anime.duration != 0:
+        if self.anime.duration is not None and self.anime.duration != 0:
             update_args["end"] = int(time.time()) + int(self.anime.duration) * 60
 
         self.rpc.clear()
