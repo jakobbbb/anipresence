@@ -10,6 +10,9 @@ import time
 from typing import Pattern, Union
 from enum import Enum
 
+if os.name == "nt":
+    import subprocess
+
 # check if pypresence / lynxpresence is available and if 'ActivityType' is supported
 try:
     from pypresence import Presence
@@ -187,7 +190,7 @@ class AniPlayerRegex:
 class AniPresence:
     anime: Anime
 
-    regexes = [
+    unix_regexes = [
         AniPlayerRegex(
             r".*mpv.*--force-media-title=(?P<title>.*)-"
             r"episode-(?P<ep>[^-]+).*",
@@ -195,6 +198,19 @@ class AniPresence:
         ),
         AniPlayerRegex(
             r".*mpv.*--force-media-title=(?P<title>.*) "
+            r"Episode (?P<ep>[0-9]+).*",
+            is_hyphenated=False,
+        ),
+    ]
+
+    win_regexes = [
+        AniPlayerRegex(
+            r".*mpv\s+(?P<title>.*)-"
+            r"episode-(?P<ep>[^-]+).*",
+            is_hyphenated=True,
+        ),
+        AniPlayerRegex(
+            r".*mpv\s+(?P<title>.*) "
             r"Episode (?P<ep>[0-9]+).*",
             is_hyphenated=False,
         ),
@@ -233,21 +249,37 @@ class AniPresence:
             except OSError:
                 print("Our mpv died")
                 return None, None
-        ps = os.popen("ps aux").read()
-        for line in ps.splitlines():
-            pid = re.split(r"[ ]+", line)[1]
-            for regex in self.regexes:
-                if m := regex.pattern.fullmatch(line):
-                    if self.mpv_pid is not None:
-                        self.mpv_pid = pid
-                    return Anime(
-                        m.group("title"),
-                        m.group("ep"),
-                        regex.is_hyphenated,
-                        self.title_format
-                    )
-        self.mpv_pid = None
-        return None
+        if os.name == "nt":
+            ps = subprocess.run("powershell \"Get-Process | Where-Object {$_.mainWindowTitle} | Format-Table id, name, mainWindowtitle -AutoSize | grep mpv\"", capture_output=True, text=True,shell=True)
+            for line in ps.stdout.splitlines():
+                pid = re.search(r'\d+', str(line))
+                for regex in self.win_regexes:
+                    if m := regex.pattern.fullmatch(line):
+                        if self.mpv_pid is not None:
+                            print("set mpv pid " + str(pid))
+                            self.mpv_pid = pid.group()
+                        return Anime(
+                            m.group("title"),
+                            m.group("ep"),
+                            regex.is_hyphenated,
+                            self.title_format
+                            )
+        else:
+            ps = os.popen("ps aux").read()
+            for line in ps.splitlines():
+                pid = re.split(r"[ ]+", line)[1]
+                for regex in self.unix_regexes:
+                    if m := regex.pattern.fullmatch(line):
+                        if self.mpv_pid is not None:
+                            self.mpv_pid = pid
+                        return Anime(
+                            m.group("title"),
+                            m.group("ep"),
+                            regex.is_hyphenated,
+                            self.title_format
+                        )
+            self.mpv_pid = None
+            return None
 
     def update(self):
         # get currently playing anime from mpv (usually in romaji)
@@ -311,10 +343,13 @@ class AniPresence:
 
     def other_is_running(self):
         pid = os.getpid()
-        return (
-            "python3"
-            in os.popen(f"ps aux | grep anipresence | grep -v {pid}").read()
-        )
+        if os.name == "nt":
+            return False
+        else:
+            return (
+                "python3"
+                in os.popen(f"ps aux | grep anipresence | grep -v {pid}").read()
+            )
 
     def try_get_cover_image_url(self, fallback="watching"):
         try:
