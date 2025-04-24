@@ -14,7 +14,8 @@ from AUR: `yay -S python-pypresence` / `yay -S python-lynxpresence`.
 
 for Discord to display 'Watching' instead of 'Playing' you'll currently need either lynxpresence or the [git version](https://github.com/qwertyquerty/pypresence#Installation) of pypresence.
 
-note that this probably won't work on Windows.
+for Windows it's similar in that you need mpv and either lynxpresence or pypresence,
+however the autostart as described below in **how** is not working (yet) so you have to manually start it at the beginning of every episode. _proper_ Windows support should not be expected, the current state is more of a stop-gap measure to get it working at all.
 
 ## how
 
