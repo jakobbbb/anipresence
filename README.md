@@ -14,11 +14,9 @@ from AUR: `yay -S python-pypresence` / `yay -S python-lynxpresence`.
 
 for Discord to display 'Watching' instead of 'Playing' you'll currently need either lynxpresence or the [git version](https://github.com/qwertyquerty/pypresence#Installation) of pypresence.
 
-for Windows it's similar in that you need mpv and either lynxpresence or pypresence, autostart however does not work. instead you can use the argument
-
-to use the rpc with local media on Linux, you'll also need `wmctrl` (and a compatible window manager)
+to use the rpc with local media on Linux, you'll also need [wmctrl](](https://www.freedesktop.org/wiki/Software/wmctrl/)) (and a compatible window manager)
 ## how
-Linux:
+### Linux
 
 start the `anipresence.py` after mpv has been started.
 there's many ways to do this. one hacky way:
@@ -29,8 +27,9 @@ add this to your `mpv.conf`:
 profile-cond=os.execute("/path/to/anipresence.py > /dev/null &")
 ```
 
-Windows:
-you can alternatively start the script with the argument `-d` or `--daemonlike` which checks every 10s if a process matches the regexes. It's called daemon-like, because it will, once started, keep running and check running processes every 10s starting the rpc and connecting to Discord if it finds a matching one.
+### Windows:
+
+since autostart does not work like this on Windows, you can start the script with the argument `-d` or `--daemonlike` which checks every 10s if a process matches the regexes. It's called daemon-like, because it will, once started, keep running and check running processes every 10s starting the rpc and connecting to Discord every time it finds a match.
 
 ## show titles on discord
 

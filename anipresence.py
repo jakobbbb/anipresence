@@ -279,11 +279,11 @@ class AniPresence:
                             self.title_format
                             )
         else:
-            # Case mpv w/o ani-cli running, Linux
-            ps = os.popen("wmctrl -lp").read()
+            # Case: ani-cli on Linux
+            ps = os.popen("ps aux").read()
             for line in ps.splitlines():
-                pid = re.split(r"[ ]+", line)[2]
-                for regex in self.wmctrl_regexes:
+                pid = re.split(r"[ ]+", line)[1]
+                for regex in self.ps_regexes:
                     if m := regex.pattern.fullmatch(line):
                         if self.mpv_pid is not None:
                             self.mpv_pid = pid
@@ -293,11 +293,11 @@ class AniPresence:
                             regex.is_hyphenated,
                             self.title_format
                         )
-            # Case: ani-cli on Linux
-            ps = os.popen("ps aux").read()
+            # Case mpv w/o ani-cli running, Linux
+            ps = os.popen("wmctrl -lp").read()
             for line in ps.splitlines():
-                pid = re.split(r"[ ]+", line)[1]
-                for regex in self.ps_regexes:
+                pid = re.split(r"[ ]+", line)[2]
+                for regex in self.wmctrl_regexes:
                     if m := regex.pattern.fullmatch(line):
                         if self.mpv_pid is not None:
                             self.mpv_pid = pid
