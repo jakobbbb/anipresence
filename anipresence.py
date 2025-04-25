@@ -82,7 +82,6 @@ class MetaDataCache:
             new_anime = self._get_cover_image_url(
                 anime, fallback
             )
-            print("gaming")
             # creating the new anime json object
             self.cache[key]= {
                 "displaytitle"  : new_anime.display_title,
@@ -190,7 +189,7 @@ class AniPlayerRegex:
 class AniPresence:
     anime: Anime
 
-    unix_regexes = [
+    ps_regexes = [
         AniPlayerRegex(
             r".*mpv.*--force-media-title=(?P<title>.*)-"
             r"episode-(?P<ep>[^-]+).*",
@@ -198,6 +197,19 @@ class AniPresence:
         ),
         AniPlayerRegex(
             r".*mpv.*--force-media-title=(?P<title>.*) "
+            r"Episode (?P<ep>[0-9]+).*",
+            is_hyphenated=False,
+        ),
+    ]
+
+    wmctrl_regexes = [
+        AniPlayerRegex(
+            r".*N/A\s+(?P<title>.*)-"
+            r"episode-(?P<ep>[^-]+).*",
+            is_hyphenated=True,
+        ),
+        AniPlayerRegex(
+            r".*N/A\s+(?P<title>.*) "
             r"Episode (?P<ep>[0-9]+).*",
             is_hyphenated=False,
         ),
@@ -223,7 +235,7 @@ class AniPresence:
     rpc_connected = False
     title_format = TitleFormat.ROMAJI # fallback if not set
 
-    def __init__(self, client_id, title_format):
+    def __init__(self, client_id, title_format, daemon_like):
         if self.other_is_running():
             print("Other instance already running.")
             return
@@ -235,6 +247,7 @@ class AniPresence:
         self.anime = Anime
         self.title_format = title_format
         self.cache = MetaDataCache(self.CACHE_PATH)
+        self.daemon_like = daemon_like
 
     def __del__(self):
         if self.rpc is not None and self.rpc_connected:
@@ -249,6 +262,7 @@ class AniPresence:
             except OSError:
                 print("Our mpv died")
                 return None, None
+        # Case: Windows
         if os.name == "nt":
             ps = subprocess.run("powershell \"Get-Process | Where-Object {$_.mainWindowTitle} | Format-Table id, name, mainWindowtitle -AutoSize | grep mpv\"", capture_output=True, text=True,shell=True)
             for line in ps.stdout.splitlines():
@@ -265,10 +279,11 @@ class AniPresence:
                             self.title_format
                             )
         else:
-            ps = os.popen("ps aux").read()
+            # Case mpv w/o ani-cli running, Linux
+            ps = os.popen("wmctrl -lp").read()
             for line in ps.splitlines():
-                pid = re.split(r"[ ]+", line)[1]
-                for regex in self.unix_regexes:
+                pid = re.split(r"[ ]+", line)[2]
+                for regex in self.wmctrl_regexes:
                     if m := regex.pattern.fullmatch(line):
                         if self.mpv_pid is not None:
                             self.mpv_pid = pid
@@ -278,8 +293,22 @@ class AniPresence:
                             regex.is_hyphenated,
                             self.title_format
                         )
-            self.mpv_pid = None
-            return None
+            # Case: ani-cli on Linux
+            ps = os.popen("ps aux").read()
+            for line in ps.splitlines():
+                pid = re.split(r"[ ]+", line)[1]
+                for regex in self.ps_regexes:
+                    if m := regex.pattern.fullmatch(line):
+                        if self.mpv_pid is not None:
+                            self.mpv_pid = pid
+                        return Anime(
+                            m.group("title"),
+                            m.group("ep"),
+                            regex.is_hyphenated,
+                            self.title_format
+                        )
+        self.mpv_pid = None
+        return None
 
     def update(self):
         # get currently playing anime from mpv (usually in romaji)
@@ -340,6 +369,10 @@ class AniPresence:
             return
         while self.try_update():
             time.sleep(2)
+        while self.daemon_like:
+            if self.try_update():
+                self.loop()
+            time.sleep(10)
 
     def other_is_running(self):
         pid = os.getpid()
@@ -372,6 +405,12 @@ def main():
         default=TitleFormat.ROMAJI,
         help="which title to use ([R]omaji/ [n]ative / [e]nglish)"
     )
+    parser.add_argument(
+        "-d",
+        "--daemonlike",
+        action="store_true",
+        help="runs the script in the background"
+    )
     args = parser.parse_args()
     if args.titleformat == 'n' or args.titleformat == 'native':
         title_format = TitleFormat.NATIVE
@@ -381,10 +420,13 @@ def main():
         title_format = TitleFormat.ROMAJI
     print(f"using {title_format} for displaying titles")
 
+    if args.daemonlike:
+        print(f"running in daemon like mode")
+
     # rpc
     client_id = "908703808966766602"
     try:
-        if a := AniPresence(client_id, title_format):
+        if a := AniPresence(client_id, title_format, args.daemonlike):
             a.loop()
     except ConnectionRefusedError:
         print("Connection refused.  Is Discord running?")
