@@ -330,13 +330,13 @@ class AniPresence:
 
         print(f"Watching {self.anime.mpv_title} episode {self.anime.currep}, epcount {self.anime.epcount}")
 
-        if self.anime.epcount == 1 or self.anime.epcount is None:
+        if self.anime.epcount == 1 and self.anime.epcount == 1:
             # this is kinda redundant with the activity type watching, but idk what'd be better
             ep_line = "Watching"
-        if  self.anime.currep != 1:
+        if self.anime.epcount is None:
             ep_line = f"Episode {self.anime.currep}"
         elif self.anime.epcount :
-            ep_line = f"{ep_line} / {self.anime.epcount}"
+            ep_line = f"Episode {self.anime.currep} / {self.anime.epcount}"
 
         update_args = {
             "details": f"{self.anime.display_title}",
