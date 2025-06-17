@@ -264,6 +264,7 @@ class AniPresence:
                 return None, None
         # Case: Windows
         if os.name == "nt":
+            # TODO replace grep with Select-String or sth silimar
             ps = subprocess.run("powershell \"Get-Process | Where-Object {$_.mainWindowTitle} | Format-Table id, name, mainWindowtitle -AutoSize | grep mpv\"", capture_output=True, text=True,shell=True)
             for line in ps.stdout.splitlines():
                 pid = re.search(r'\d+', str(line))
@@ -330,12 +331,12 @@ class AniPresence:
 
         print(f"Watching {self.anime.mpv_title} episode {self.anime.currep}, epcount {self.anime.epcount}")
 
-        if self.anime.epcount == 1 and self.anime.epcount == 1:
+        if self.anime.epcount == 1:
             # this is kinda redundant with the activity type watching, but idk what'd be better
             ep_line = "Watching"
-        if self.anime.epcount is None:
+        if self.anime.epcount == 0:
             ep_line = f"Episode {self.anime.currep}"
-        elif self.anime.epcount :
+        else:
             ep_line = f"Episode {self.anime.currep} / {self.anime.epcount}"
 
         update_args = {
@@ -380,7 +381,17 @@ class AniPresence:
     def other_is_running(self):
         pid = os.getpid()
         if os.name == "nt":
-            return False
+            win_bs = [
+                "powershell.exe",
+                "-Command",
+                "Get-CimInstance Win32_Process -Filter \"name = 'python.exe'\" | "
+                "Select-Object CommandLine,ProcessId | "
+                "Where-Object {$_.CommandLine -like '*anipresence.py*'} | "
+                "Select-Object -ExpandProperty ProcessId",
+            ]
+            ps = subprocess.run(win_bs, capture_output=True, text=True, shell=True)
+            procs = ps.stdout.splitlines()
+            return len(procs) > 1
         else:
             return (
                 "python3"
