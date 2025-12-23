@@ -328,6 +328,9 @@ class AniPresence:
         # set relevant values for anime object from cache / AL
         self.try_get_cover_image_url()
 
+        if self.anime.epcount == 0:
+            self.anime.epcount = 1
+        
         print(f"Watching {self.anime.mpv_title} episode {self.anime.currep}, epcount {self.anime.epcount}")
 
         if self.anime.epcount == 1 and self.anime.epcount == 1:
