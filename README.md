@@ -3,7 +3,7 @@
 discord rich presence for ani-cli/animdl:
 
 <p align="center">
-    <img style="width: 400px" alt="screenshot" src="https://gist.githubusercontent.com/jakobbbb/d46ec01fc919d857cf5dbc8e9b051bc8/raw/61f74b486b94df68235565119a1cd99e0b254156/screenshot.png"/>
+    <img style="width: 400px" alt="screenshot" src="https://gist.githubusercontent.com/jakobbbb/d46ec01fc919d857cf5dbc8e9b051bc8/raw/screenshot.png"/>
 </p>
 
 ## deps
