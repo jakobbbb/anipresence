@@ -6,12 +6,10 @@ import requests
 import json
 import argparse
 import time
+import subprocess
 
 from typing import Pattern, Union
 from enum import Enum
-
-if os.name == "nt":
-    import subprocess
 
 # check if pypresence / lynxpresence is available and if 'ActivityType' is supported
 try:
@@ -44,7 +42,7 @@ class Anime:
 
     def __init__(self, title, currep, hyphenated, format):
         self.display_title = self.mpv_title = title
-        self.currep = currep
+        self.currep = int(currep)
         self.hyphenated = hyphenated
         self.title_format = format
 
@@ -280,35 +278,39 @@ class AniPresence:
                             )
         else:
             # Case: ani-cli on Linux
-            ps = os.popen("ps aux").read()
-            for line in ps.splitlines():
-                pid = re.split(r"[ ]+", line)[1]
-                for regex in self.ps_regexes:
-                    if m := regex.pattern.fullmatch(line):
-                        if self.mpv_pid is not None:
-                            self.mpv_pid = pid
-                        return Anime(
-                            m.group("title"),
-                            m.group("ep"),
-                            regex.is_hyphenated,
-                            self.title_format
-                        )
-            # Case mpv w/o ani-cli running, Linux
-            ps = os.popen("wmctrl -lp").read()
-            for line in ps.splitlines():
-                pid = re.split(r"[ ]+", line)[2]
-                for regex in self.wmctrl_regexes:
-                    if m := regex.pattern.fullmatch(line):
-                        if self.mpv_pid is not None:
-                            self.mpv_pid = pid
-                        return Anime(
-                            m.group("title"),
-                            m.group("ep"),
-                            regex.is_hyphenated,
-                            self.title_format
-                        )
-        self.mpv_pid = None
-        return None
+            if not self.daemon_like:
+                ps = subprocess.run("ps aux", capture_output=True, text=True,shell=True)
+                for line in ps.stdout.splitlines():
+                    print(f"line: {line}")
+                    pid = re.split(r"[ ]+", line)[1]
+                    for regex in self.ps_regexes:
+                        if m := regex.pattern.fullmatch(line):
+                            if self.mpv_pid is not None:
+                                self.mpv_pid = pid
+                            return Anime(
+                                m.group("title"),
+                                m.group("ep"),
+                                regex.is_hyphenated,
+                                self.title_format
+                            )
+            else:
+                # Case mpv w/o ani-cli running, Linux
+                ps = subprocess.run("wmctrl -lp", capture_output=True, text=True,shell=True)
+                for line in ps.stdout.splitlines():
+                    print(line)
+                    pid = re.split(r"[ ]+", line)[2]
+                    for regex in self.wmctrl_regexes:
+                        if m := regex.pattern.fullmatch(line):
+                            if self.mpv_pid is not None:
+                                self.mpv_pid = pid
+                            return Anime(
+                                m.group("title"),
+                                m.group("ep"),
+                                regex.is_hyphenated,
+                                self.title_format
+                            )
+            self.mpv_pid = None
+            return None
 
     def update(self):
         # get currently playing anime from mpv (usually in romaji)
@@ -327,16 +329,13 @@ class AniPresence:
 
         # set relevant values for anime object from cache / AL
         self.try_get_cover_image_url()
-
-        if self.anime.epcount == 0:
-            self.anime.epcount = 1
         
         print(f"Watching {self.anime.mpv_title} episode {self.anime.currep}, epcount {self.anime.epcount}")
 
-        if self.anime.epcount == 1 and self.anime.epcount == 1:
+        if self.anime.epcount == 1 and self.anime.currep == 1:
             # this is kinda redundant with the activity type watching, but idk what'd be better
-            ep_line = "Watching"
-        if self.anime.epcount is None:
+            ep_line = "Watching a movie"
+        elif self.anime.epcount is None or self.anime.currep > self.anime.epcount:
             ep_line = f"Episode {self.anime.currep}"
         elif self.anime.epcount :
             ep_line = f"Episode {self.anime.currep} / {self.anime.epcount}"
@@ -377,17 +376,24 @@ class AniPresence:
         while self.daemon_like:
             if self.try_update():
                 self.loop()
-            self.rpc.clear()
-            time.sleep(10)
+            else:
+                self.rpc.clear()
+                time.sleep(10)
 
     def other_is_running(self):
         pid = os.getpid()
         if os.name == "nt":
+            # not currently supported, default to false
             return False
         else:
             return (
                 "python3"
-                in os.popen(f"ps aux | grep anipresence | grep -v {pid}").read()
+                in subprocess.run(
+                    f"ps aux | grep anipresence | grep -v {pid}",
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout
             )
 
     def try_get_cover_image_url(self, fallback="watching"):

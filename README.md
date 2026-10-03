@@ -12,9 +12,7 @@ your player must be `mpv`, and you must have either `pypresence` or `lynxpresenc
 
 from AUR: `yay -S python-pypresence` / `yay -S python-lynxpresence`.
 
-for Discord to display 'Watching' instead of 'Playing' you'll currently need either lynxpresence or the [git version](https://github.com/qwertyquerty/pypresence#Installation) of pypresence.
-
-to use the rpc with local media on Linux, you'll also need [wmctrl](](https://www.freedesktop.org/wiki/Software/wmctrl/)) (and a compatible window manager)
+to use the RPC without ani-cli for local media on Linux, you'll also need [`wmctrl`](https://www.freedesktop.org/wiki/Software/wmctrl/) (and a compatible window manager)
 ## how
 ### Linux
 
@@ -29,25 +27,25 @@ profile-cond=os.execute("/path/to/anipresence.py > /dev/null &")
 
 ### Windows:
 
-since autostart does not work like this on Windows, you can start the script with the argument `-d` or `--daemonlike` which checks every 10s if a process matches the regexes. It's called daemon-like, because it will, once started, keep running and check running processes every 10s starting the rpc and connecting to Discord every time it finds a match.
+since mpv's autostart does not work like this on Windows, you can start the script with the argument `-d` or `--daemonlike` which checks every 10s if a process matches the regexes. It's called daemon-like, because it will, once started, keep running and check running processes every 10s starting the RPC and connecting to Discord every time it finds a match.
 
 ## show titles on discord
 
-shows usually have three official titles that AL reconizes and makes easily accessible:
+shows usually have three official titles that AL recognizes and makes easily accessible:
 
 `Romaji`, `Native` and `English`. for [EVA](https://anilist.co/anime/30/Shin-Seiki-Evangelion/) that would be "Shin Seiki Evangelion", "新世紀エヴァンゲリオン" and "Neon Genesis Evangelion". anipresence uses romaji as the default title format.
 
 to select which title format to use, set argument `-t` or `--titleformat` with the options `r | romaji | n | native | e | english`. 
 
-should you, for example, want enlish titles just change the `mpv.conf` entry to:
+should you, for example, want english titles just change the `mpv.conf` entry to:
 
 ```ini
 [discord-rpc]
 profile-cond=os.execute("/path/to/anipresence.py -t e > /dev/null &")
 ```
-_**note:**_ anipresence saves only one so called "display title". if you decide to change the title format, all shows watched _before_ this change will still show their title in the _old_ title format.
+_**note:**_ anipresence saves only one so called "display title". if you decide to change the title format, all shows watched _before_ this change will still show their title in the _old_ title format, unless you change their entry in `~/.cache/anipresence/cover.json`
  
-## nicer titles
+## nicer titles (outdated)
 
 patch `ani-cli`:
 
